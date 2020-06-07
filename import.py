@@ -2,7 +2,8 @@ import psycopg2
 from nltk.corpus import brown
 import json
 import random
-from nltk import pos_tag, word_tokenize, map_tag, UnigramTagger, FreqDist, ConditionalFreqDist
+from nltk import word_tokenize, UnigramTagger, FreqDist, ConditionalFreqDist
+import csv
 
 def get_baseline_tagger():
     print("Initializing...", end=" ")
@@ -30,7 +31,7 @@ def process_file(filename):
 def process_ingredients(ingredients):
     for ingredient_string in ingredients:
         text = word_tokenize(ingredient_string)
-        tags = baseline_tagger.tag(text) #pos_tag(text)
+        tags = baseline_tagger.tag(text) 
         ingredient_name = []
         ingredient_details = []
         quantity = 0
@@ -102,7 +103,16 @@ UNITS_OF_MEASUREMENT = {
     # Gram
     'gram': 'g', 'gramme': 'g', 'grams': 'g', 'grammes': 'g', 'g': 'g',
     # Kilogram
-    
+    'kilogram': 'kg', 'kilograms': 'kg', 'kilogramme': 'kg', 'kilogrammes': 'kg', 'kg': 'kg',
+    # Millimeter
+    'millimeter': 'mm', 'millimeters': 'mm', 'millimetre': 'mm', 'millimetres': 'mm', 'mm': 'mm',
+    # Centimeter
+    'centimeter': 'cm', 'centimeters': 'cm', 'centimetre': 'cm', 'centimetres': 'cm', 'cm': 'cm',
+    # Meter
+    'meter': 'm', 'meters': 'm', 'metres': 'm', 'metre': 'm', 'm': 'm',
+    # Inch
+    'inch': 'in', 'in': 'in', 'inches': 'in', '#': 'in'
+
 }
 
 
