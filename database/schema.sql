@@ -52,7 +52,8 @@ CREATE TABLE units_of_measurement (
 
 CREATE TABLE ingredients (
     id SERIAL PRIMARY KEY,
-    ingredient_name VARCHAR(80)
+    ingredient_name VARCHAR(800),
+    default_unit_of_measurement VARCHAR(5)
 );
 
 CREATE TABLE recipe_ingredients (

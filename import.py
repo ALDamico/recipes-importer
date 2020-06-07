@@ -4,6 +4,9 @@ import json
 import random
 from nltk import word_tokenize, UnigramTagger, FreqDist, ConditionalFreqDist
 import csv
+import threading
+from datetime import datetime
+from collections import defaultdict
 
 def get_baseline_tagger():
     print("Initializing...", end=" ")
@@ -17,6 +20,7 @@ def get_baseline_tagger():
     return baseline_tagger
 
 def process_file(filename):
+    start_time = datetime.now()
     with open(filename, 'r') as f:
         json_obj = json.load(f)
         for _, recipe in json_obj.items():
@@ -25,6 +29,8 @@ def process_file(filename):
             recipe['recipe_name'] = recipe['title']
             recipe['number_of_serves'] = random.randint(1, 10)
             process_ingredients(recipe['ingredients'])
+    end_time = datetime.now() - start_time
+    print(f"Processing for file {filename} ({len(json_obj.keys())} items) finished in {end_time}")
 
 
 
@@ -38,19 +44,31 @@ def process_ingredients(ingredients):
         unit_of_measurement = ""
         for tag in tags:
             word, part_of_speech = split_tuple(tag)
+            try:
+                uom = UNITS_OF_MEASUREMENT[word]
+                unit_of_measurement = uom
+            except KeyError:
+                pass
             if part_of_speech in ('NN', 'NNS'):  # Nouns and possessive nouns
-                ingredient_name.append(word)
+                if part_of_speech in UNITS_OF_MEASUREMENT.keys():
+                    unit_of_measurement = part_of_speech
+                else:
+                    ingredient_name.append(word)
             elif part_of_speech == 'CD':  # cardinal numbers
                 if looks_like_fraction(word):
                     quantity += looks_like_fraction(word)
-                else:
+                elif word.isdigit():
                     quantity += float(word)
+                else:
+                    ingredient_name.append(word)
             elif part_of_speech == 'ADJ':  # Adjectives
                 ingredient_details.append(word)
             else:
                 ingredient_details.append(word)
         if unit_of_measurement == "":
             unit_of_measurement = "s"  # single
+        ingredient_name = ' '.join(ingredient_name)
+        ingredients_csv[ingredient_name] = {'ingredient_name': ingredient_name}
                 
                 
 
@@ -68,10 +86,9 @@ def looks_like_fraction(input):
     except ValueError:
         return False
 
-baseline_tagger = get_baseline_tagger()
 
-FILES = ["input_files/recipes_raw_nosource_ar.json", "input_files/recipes_raw_nosource_fn.json", "input_files/recipes_raw_nosource_epi.json"]
-UNITS_OF_MEASUREMENT = {
+def units_of_measurement_factory():
+    return {
     # Tea spoon
     'tsp': 'tsp', 'tsp.': 'tsp', 'teaspoon': 'tsp', 'teaspoons': 'tsp', 'tea spoon'
     # Table spoon
@@ -112,10 +129,49 @@ UNITS_OF_MEASUREMENT = {
     'meter': 'm', 'meters': 'm', 'metres': 'm', 'metre': 'm', 'm': 'm',
     # Inch
     'inch': 'in', 'in': 'in', 'inches': 'in', '#': 'in'
-
 }
 
+baseline_tagger = get_baseline_tagger()
 
+FILES = ["input_files/recipes_raw_nosource_ar.json", "input_files/recipes_raw_nosource_fn.json", "input_files/recipes_raw_nosource_epi.json"]
+UNITS_OF_MEASUREMENT = defaultdict()
+uom_fact = units_of_measurement_factory()
+for key, value in uom_fact.items():
+    UNITS_OF_MEASUREMENT[key] = value
 
+ingredients_csv = {}
+
+threads = []
+
+"""
 for file in FILES:
-    process_file(file)
+    print("Starting new thread for file {}".format(file))
+    th = threading.Thread(target=process_file, args=(file,))
+    threads.append(th)
+    th.start()
+    
+
+for th in threads:
+    th.join()"""
+
+
+# Database connection
+print("Establishing connection to postgres database")
+connection_string = "dbname=recipes user=postgres password=password host=localhost"
+sql_connection = psycopg2.connect(connection_string)
+cursor = sql_connection.cursor()
+cursor.execute(open("database/schema.sql", "r").read())
+sql_connection.commit()
+print("Recreated table structure")
+
+print("Writing ingredients to csv file")
+"""with open('output_files/ingredients.csv', 'w') as ingredient_file:
+    fields = ['ingredient_name']
+    ingredient_writer = csv.DictWriter(ingredient_file, fields)
+    for row in ingredients_csv.keys():
+        ingredient_writer.writerow(ingredients_csv[row])"""
+
+print("Copying data to ingredients table")
+with open("output_files/ingredients.csv", 'r', newline='\n') as ingredient_file:
+    cursor.copy_from(ingredient_file, "ingredients", columns=("ingredient_name",), sep=";")
+    sql_connection.commit()
