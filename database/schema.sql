@@ -19,6 +19,7 @@ CREATE TABLE users (
 );
 
 CREATE INDEX idx_users_registration_date ON users(registered_on);
+CREATE INDEX idx_users_username ON users(username);
 
 CREATE TABLE recipes (
     id SERIAL PRIMARY KEY,
@@ -27,6 +28,7 @@ CREATE TABLE recipes (
     likes INTEGER DEFAULT 0,
     dislikes INTEGER DEFAULT 0,
     number_of_serves INTEGER,
+    difficulty REAL CHECK (difficulty BETWEEN 1.0 AND 5.0),
     posted_on TIMESTAMP WITHOUT TIME ZONE,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
